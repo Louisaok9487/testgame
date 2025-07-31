@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Refined Tic Tac Toe 5x5 AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Tone.js for sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        /* Basic reset and body styling */
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a2a3a, #0a1a2a); /* Deep, modern dark gradient */
+            font-family: 'Inter', sans-serif; /* Modern sans-serif font */
+            color: #e0e7ee; /* Light grey text */
+            overflow: hidden;
+            perspective: 1000px; /* For subtle 3D effects */
+        }
+
+        /* Game container styling */
+        .game-container {
+            background-color: rgba(255, 255, 255, 0.08); /* Semi-transparent background for modern feel */
+            backdrop-filter: blur(10px); /* Glassmorphism effect */
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(255, 255, 255, 0.05);
+            text-align: center;
+            position: relative;
+            transform-style: preserve-3d; /* Enable 3D transforms for children */
+            transition: transform 0.3s ease-out;
+            max-width: 550px; /* Adjusted for 5x5 board */
+            width: 90%; /* Responsive width */
+        }
+
+        /* Title styling */
+        h1 {
+            font-size: 2.8em;
+            margin-bottom: 25px;
+            color: #8be9fd; /* Light blue accent */
+            text-shadow: 0 0 15px rgba(139, 233, 253, 0.5); /* Glowing effect */
+            font-weight: 700;
+        }
+
+        /* Message display */
+        #message {
+            font-size: 1.3em;
+            margin-bottom: 25px;
+            min-height: 1.5em;
+            color: #f1fa8c; /* Yellowish accent */
+            font-weight: 700;
+            transition: color 0.3s ease-in-out;
+        }
+
+        /* AI thinking animation */
+        #message.thinking {
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { opacity: 1; }
+            to { opacity: 0.7; }
+        }
+
+        /* Game board styling (5x5) */
+        .board {
+            display: grid;
+            grid-template-columns: repeat(5, 80px); /* 5 columns, 80px each */
+            grid-template-rows: repeat(5, 80px); /* 5 rows, 80px each */
+            gap: 10px; /* Reduced gap for more cells */
+            background-color: rgba(0, 0, 0, 0.3); /* Darker board background */
+            border-radius: 15px;
+            padding: 10px;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.7), 0 5px 15px rgba(0, 0, 0, 0.4);
+            margin: 0 auto 30px auto;
+            max-width: 470px; /* (5 * 80px) + (4 * 10px) + (2 * 10px padding) */
+            transform: rotateX(5deg) rotateY(-5deg); /* Subtle 3D tilt */
+            transition: transform 0.3s ease-out;
+        }
+
+        /* Cell styling */
+        .cell {
+            width: 80px; /* Adjusted for 5x5 */
+            height: 80px; /* Adjusted for 5x5 */
+            background-color: rgba(255, 255, 255, 0.05); /* Lighter cell background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3em; /* Adjusted font size for 5x5 */
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4), inset 0 0 8px rgba(255, 255, 255, 0.05);
+            user-select: none;
+            transform-style: preserve-3d;
+            position: relative;
+        }
+
+        .cell:hover:not(.occupied) {
+            background-color: rgba(139, 233, 253, 0.2); /* Hover highlight */
+            transform: translateY(-5px) scale(1.02); /* Lift and slightly enlarge */
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6), inset 0 0 12px rgba(139, 233, 253, 0.3);
+        }
+
+        .cell.occupied {
+            cursor: not-allowed;
+            transform: translateY(-2px); /* Keep occupied cells slightly "pressed" */
+        }
+
+        /* X and O styling for 3D effect */
+        .cell.X {
+            color: #ff6e6e; /* Soft red for X */
+            text-shadow: 0 0 10px rgba(255, 110, 110, 0.7);
+            transform: translateZ(10px); /* Bring X forward */
+        }
+
+        .cell.O {
+            color: #50fa7b; /* Vibrant green for O */
+            text-shadow: 0 0 10px rgba(80, 250, 123, 0.7);
+            transform: translateZ(10px); /* Bring O forward */
+        }
+
+        /* Winning cell highlight */
+        .cell.winning-cell {
+            background-color: rgba(255, 255, 255, 0.3); /* Brighter background */
+            box-shadow: 0 0 25px rgba(255, 255, 255, 0.8), inset 0 0 15px rgba(255, 255, 255, 0.5); /* Stronger glow */
+            animation: pulse-win 1s infinite alternate;
+        }
+
+        @keyframes pulse-win {
+            from { transform: scale(1); opacity: 1; }
+            to { transform: scale(1.05); opacity: 0.9; }
+        }
+
+        /* Reset button styling */
+        button {
+            background: linear-gradient(135deg, #bd93f9, #ff79c6); /* Purple-pink gradient */
+            color: white;
+            padding: 18px 35px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.3em;
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+            transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            outline: none;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #ff79c6, #bd93f9);
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 30px;
+                max-width: 90%;
+            }
+            h1 {
+                font-size: 2.2em;
+            }
+            #message {
+                font-size: 1.1em;
+            }
+            .board {
+                grid-template-columns: repeat(5, 60px); /* Smaller cells for tablets */
+                grid-template-rows: repeat(5, 60px);
+                gap: 8px;
+                max-width: 340px; /* (5 * 60px) + (4 * 8px) + (2 * 8px padding) */
+            }
+            .cell {
+                width: 60px;
+                height: 60px;
+                font-size: 2.5em;
+            }
+            button {
+                padding: 15px 30px;
+                font-size: 1.1em;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .game-container {
+                padding: 20px;
+            }
+            h1 {
+                font-size: 1.8em;
+            }
+            #message {
+                font-size: 0.9em;
+            }
+            .board {
+                grid-template-columns: repeat(5, 50px); /* Even smaller cells for mobile */
+                grid-template-rows: repeat(5, 50px);
+                gap: 6px;
+                max-width: 280px; /* (5 * 50px) + (4 * 6px) + (2 * 6px padding) */
+            }
+            .cell {
+                width: 50px;
+                height: 50px;
+                font-size: 2em;
+            }
+            button {
+                padding: 12px 25px;
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Tic Tac Toe AI (5x5)</h1>
+        <div id="message">Player X's Turn</div>
+        <div class="board" id="gameBoard">
+            <!-- Cells will be generated by JavaScript -->
+        </div>
+        <button id="resetButton">Reset Game</button>
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const gameBoard = document.getElementById('gameBoard');
+        let cells; // Will be populated after cells are generated
+        const messageDisplay = document.getElementById('message');
+        const resetButton = document.getElementById('resetButton');
+
+        // Game constants
+        const BOARD_SIZE = 5; // N for N x N board
+        const WIN_LENGTH = 4; // K for K in a row to win
+
+        // Game state variables
+        let board = new Array(BOARD_SIZE * BOARD_SIZE).fill(''); // Represents the Tic Tac Toe board
+        let currentPlayer = 'X'; // 'X' for player, 'O' for AI
+        let gameActive = true; // True if the game is ongoing
+
+        // Sound effects setup
+        let clickSynth, winSynth, drawSynth;
+        let audioInitialized = false;
+
+        /**
+         * Function to initialize audio context and synths.
+         * Called on the first user interaction to comply with browser autoplay policies.
+         */
+        async function initializeAudio() {
+            if (audioInitialized) return; // Prevent re-initialization
+            try {
+                await Tone.start(); // Start the Tone.js audio context
+                console.log("Audio context started");
+
+                // Synth for cell clicks
+                clickSynth = new Tone.Synth({
+                    oscillator: { type: "sine" }, // Smoother sine wave
+                    envelope: { attack: 0.001, decay: 0.08, sustain: 0.01, release: 0.1 }
+                }).toDestination();
+
+                // Synth for winning sound
+                winSynth = new Tone.Synth({
+                    oscillator: { type: "triangle" }, // More distinct triangle wave
+                    envelope: { attack: 0.02, decay: 0.3, sustain: 0.1, release: 0.8 }
+                }).toDestination();
+
+                // Synth for draw sound
+                drawSynth = new Tone.Synth({
+                    oscillator: { type: "sawtooth" }, // Grittier sawtooth wave
+                    envelope: { attack: 0.01, decay: 0.2, sustain: 0.05, release: 0.4 }
+                }).toDestination();
+
+                audioInitialized = true;
+            } catch (e) {
+                console.error("Failed to initialize audio:", e);
+                // If audio fails, the game should still be playable without sound.
+            }
+        }
+
+        /**
+         * Generates all possible winning combinations for an N x N board
+         * where K consecutive marks are required for a win.
+         * @param {number} N - The size of the board (N x N).
+         * @param {number} K - The number of consecutive marks for a win.
+         * @returns {Array<Array<number>>} An array of winning combinations.
+         */
+        function generateWinningConditions(N, K) {
+            const conditions = [];
+
+            // Horizontal winning conditions
+            for (let r = 0; r < N; r++) {
+                for (let c = 0; c <= N - K; c++) {
+                    const combo = [];
+                    for (let i = 0; i < K; i++) {
+                        combo.push(r * N + c + i);
+                    }
+                    conditions.push(combo);
+                }
+            }
+
+            // Vertical winning conditions
+            for (let c = 0; c < N; c++) {
+                for (let r = 0; r <= N - K; r++) {
+                    const combo = [];
+                    for (let i = 0; i < K; i++) {
+                        combo.push((r + i) * N + c);
+                    }
+                    conditions.push(combo);
+                }
+            }
+
+            // Diagonal (top-left to bottom-right) winning conditions
+            for (let r = 0; r <= N - K; r++) {
+                for (let c = 0; c <= N - K; c++) {
+                    const combo = [];
+                    for (let i = 0; i < K; i++) {
+                        combo.push((r + i) * N + c + i);
+                    }
+                    conditions.push(combo);
+                }
+            }
+
+            // Diagonal (top-right to bottom-left) winning conditions
+            for (let r = 0; r <= N - K; r++) {
+                for (let c = K - 1; c < N; c++) {
+                    const combo = [];
+                    for (let i = 0; i < K; i++) {
+                        combo.push((r + i) * N + c - i);
+                    }
+                    conditions.push(combo);
+                }
+            }
+            return conditions;
+        }
+
+        // Generate winning conditions based on BOARD_SIZE and WIN_LENGTH
+        let winningConditions = generateWinningConditions(BOARD_SIZE, WIN_LENGTH);
+
+        /**
+         * Handles a player's move.
+         * @param {HTMLElement} clickedCell - The cell element that was clicked.
+         * @param {number} clickedCellIndex - The index of the clicked cell (0-BOARD_SIZE*BOARD_SIZE - 1).
+         */
+        function handlePlayerMove(clickedCell, clickedCellIndex) {
+            // If the cell is already occupied or the game is not active, do nothing
+            if (board[clickedCellIndex] !== '' || !gameActive) {
+                return;
+            }
+
+            // Play click sound
+            if (audioInitialized) {
+                clickSynth.triggerAttackRelease("C4", "16n"); // Shorter, snappier click
+            }
+
+            // Update the board and UI for the current player's move
+            board[clickedCellIndex] = currentPlayer;
+            clickedCell.innerHTML = currentPlayer;
+            clickedCell.classList.add(currentPlayer); // Add class for styling (X or O color)
+            clickedCell.classList.add('occupied'); // Mark as occupied
+
+            // Check for game result after the move
+            checkGameResult();
+
+            // If the game is still active and it's AI's turn, make AI move
+            if (gameActive && currentPlayer === 'O') {
+                messageDisplay.innerHTML = "AI is thinking...";
+                messageDisplay.classList.add('thinking'); // Add thinking animation
+                setTimeout(handleAIMove, 700); // Delay AI move for better UX
+            }
+        }
+
+        /**
+         * Checks if the game has ended (win or draw).
+         */
+        function checkGameResult() {
+            let winDetected = false;
+            let winningCombo = [];
+
+            // Iterate through all winning conditions
+            for (let i = 0; i < winningConditions.length; i++) {
+                const condition = winningConditions[i];
+                // Check if all cells in the current winning condition match the current player
+                let allMatch = true;
+                for (let j = 0; j < WIN_LENGTH; j++) {
+                    if (board[condition[j]] !== currentPlayer) {
+                        allMatch = false;
+                        break;
+                    }
+                }
+                if (allMatch) {
+                    winDetected = true;
+                    winningCombo = condition; // Store the winning combination
+                    break;
+                }
+            }
+
+            // Handle win scenario
+            if (winDetected) {
+                messageDisplay.innerHTML = `Player ${currentPlayer} Wins!`;
+                gameActive = false; // End the game
+                if (audioInitialized) {
+                    winSynth.triggerAttackRelease(["C5", "E5", "G5"], "0.5"); // Longer, more pronounced win sound
+                }
+                // Highlight winning cells
+                winningCombo.forEach(index => {
+                    cells[index].classList.add('winning-cell');
+                });
+                return;
+            }
+
+            // Handle draw scenario (no empty cells left)
+            let roundDraw = !board.includes('');
+            if (roundDraw) {
+                messageDisplay.innerHTML = 'Game Draw!';
+                gameActive = false; // End the game
+                if (audioInitialized) {
+                    drawSynth.triggerAttackRelease("C3", "0.4"); // Distinct draw sound
+                }
+                return;
+            }
+
+            // If no win or draw, switch players
+            switchPlayer();
+        }
+
+        /**
+         * Switches the current player.
+         */
+        function switchPlayer() {
+            messageDisplay.classList.remove('thinking'); // Remove thinking animation
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            messageDisplay.innerHTML = `Player ${currentPlayer}'s Turn`;
+        }
+
+        /**
+         * Implements the AI's move logic.
+         * This AI uses a simple heuristic strategy for a 5x5 board:
+         * 1. Try to win.
+         * 2. Block the opponent from winning.
+         * 3. Take the center (index 12 for a 5x5 board).
+         * 4. Take a corner.
+         * 5. Take any available side.
+         * Note: This AI is basic and might not be optimal for a 5x5 board,
+         * as a truly strong AI for this size would require a more complex algorithm like Minimax.
+         */
+        function handleAIMove() {
+            if (!gameActive) {
+                messageDisplay.classList.remove('thinking');
+                return;
+            }
+
+            const emptyCells = board.map((val, idx) => val === '' ? idx : -1).filter(idx => idx !== -1);
+
+            if (emptyCells.length === 0) {
+                messageDisplay.classList.remove('thinking');
+                return; // No moves left
+            }
+
+            let bestMove = -1;
+
+            // Helper to check if a player wins with a potential move
+            const checkPotentialWin = (tempBoard, player) => {
+                for (const condition of winningConditions) {
+                    let count = 0;
+                    for (const index of condition) {
+                        if (tempBoard[index] === player) {
+                            count++;
+                        } else {
+                            break;
+                        }
+                    }
+                    if (count === WIN_LENGTH) return true;
+                }
+                return false;
+            };
+
+            // 1. Check if AI can win
+            for (const cellIndex of emptyCells) {
+                const tempBoard = [...board];
+                tempBoard[cellIndex] = 'O';
+                if (checkPotentialWin(tempBoard, 'O')) {
+                    bestMove = cellIndex;
+                    break;
+                }
+            }
+
+            // 2. Check if player can win and block them
+            if (bestMove === -1) {
+                for (const cellIndex of emptyCells) {
+                    const tempBoard = [...board];
+                    tempBoard[cellIndex] = 'X';
+                    if (checkPotentialWin(tempBoard, 'X')) {
+                        bestMove = cellIndex;
+                        break;
+                    }
+                }
+            }
+
+            // 3. Take center (index 12 for 5x5) if available
+            const centerIndex = Math.floor((BOARD_SIZE * BOARD_SIZE) / 2); // For 5x5, this is 12
+            if (bestMove === -1 && emptyCells.includes(centerIndex)) {
+                bestMove = centerIndex;
+            }
+
+            // 4. Take a corner if available
+            if (bestMove === -1) {
+                const corners = [0, BOARD_SIZE - 1, BOARD_SIZE * (BOARD_SIZE - 1), BOARD_SIZE * BOARD_SIZE - 1]; // [0, 4, 20, 24] for 5x5
+                for (const cornerIndex of corners) {
+                    if (emptyCells.includes(cornerIndex)) {
+                        bestMove = cornerIndex;
+                        break;
+                    }
+                }
+            }
+
+            // 5. Take any available side (non-corner, non-center)
+            if (bestMove === -1) {
+                const nonStrategicCells = emptyCells.filter(idx =>
+                    idx !== centerIndex &&
+                    ![0, BOARD_SIZE - 1, BOARD_SIZE * (BOARD_SIZE - 1), BOARD_SIZE * BOARD_SIZE - 1].includes(idx)
+                );
+                if (nonStrategicCells.length > 0) {
+                    bestMove = nonStrategicCells[Math.floor(Math.random() * nonStrategicCells.length)];
+                }
+            }
+
+            // Fallback: If no strategic move found, pick a random empty cell
+            if (bestMove === -1 && emptyCells.length > 0) {
+                 bestMove = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            }
+
+            // Make the AI's determined move
+            if (bestMove !== -1) {
+                const cellToClick = document.querySelector(`.cell[data-index="${bestMove}"]`);
+                handlePlayerMove(cellToClick, bestMove);
+            }
+        }
+
+        /**
+         * Resets the game to its initial state.
+         * Dynamically generates cells for the board.
+         */
+        function resetGame() {
+            board = new Array(BOARD_SIZE * BOARD_SIZE).fill('');
+            currentPlayer = 'X';
+            gameActive = true;
+            messageDisplay.innerHTML = "Player X's Turn";
+            messageDisplay.classList.remove('thinking'); // Ensure thinking animation is off
+
+            // Clear and re-generate cells
+            gameBoard.innerHTML = '';
+            for (let i = 0; i < BOARD_SIZE * BOARD_SIZE; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                cell.dataset.index = i;
+                cell.addEventListener('click', () => handlePlayerMove(cell, i));
+                gameBoard.appendChild(cell);
+            }
+            // Re-select cells after they are generated
+            cells = document.querySelectorAll('.cell');
+        }
+
+        // Event Listeners
+        // Add click listener to the reset button
+        resetButton.addEventListener('click', () => {
+            initializeAudio(); // Ensure audio is initialized on button click
+            resetGame();
+        });
+
+        // Initial game setup on window load
+        window.onload = resetGame;
+
+        // Add a global click listener to initialize audio on the very first interaction
+        // This handles cases where the user might click a cell before the reset button.
+        document.addEventListener('click', initializeAudio, { once: true });
+    </script>
+</body>
+</html>
